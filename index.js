@@ -1,15 +1,18 @@
 const { ApolloServer, PubSub } = require('apollo-server')
-
+const { MongoClient, ObjectID } = require('mongodb')
 const lifts = require('./data/lifts.json')
 const trails = require('./data/trails.json')
 
-console.log(`Build your GraphQL Server Here!`)
+require('dotenv').config();
+
 /**
- * "capacity": 1,
-    "status": "OPEN",
-    "night": false,
-    "elevationGain": 50,
-    "trails": ["home-run", "crosscut"],
+ * TODO LIST:
+ * Create a mutation to add a lift/trail
+ * Modify the allLifts to filter by trail status
+ * Add an allTrails query
+ * Add an allTrailsAndLifts query by status
+ * Add a liftCount query
+ * Add findTrailByName query
  */
 
 const typeDefs = `
@@ -47,11 +50,14 @@ const typeDefs = `
 
 const resolvers = {
   Query: {
-    allLifts: () => {
-      return lifts
+    allLifts: (parent, args, {lifts}) => {
+      return lifts.find().toArray()
     }
   },
   Mutation: {
+    // addLift: (parent, args, {lifts}) => {
+
+    // },
     setLiftStatus: (parent, args) => {
       const liftId = args.id;
       const liftStatus = args.status;
@@ -73,11 +79,24 @@ const resolvers = {
 
 }
 
-const server = new ApolloServer({
-  typeDefs,
-  resolvers
-});
+const start = async () => {
 
-server.listen().then(({ url })=> {
-  console.log(`Server running at ${url}`);
-});
+  const client = await MongoClient.connect(process.env.DB_HOST, { useNewUrlParser: true })
+  const db = client.db()
+
+  const server = new ApolloServer({
+      typeDefs,
+      resolvers,
+      context: {
+          lifts: db.collection('lifts'),
+          trails: db.collection('trails')
+      }
+  })
+
+  server.listen({port: 4040})
+      .then(({ port }) => `server listening on ${port}`)
+      .then(console.log)
+      .catch(console.error)
+}
+
+start()
